@@ -5,6 +5,7 @@ project(botsort_tracker_example VERSION 0.1.0 LANGUAGES CXX)
 
 # Build options
 option(BUILD_EXAMPLES "Build examples" ON)
+option(BUILD_SERVICE "Build service" ON)
 
 # Set Build Type if not set
 if(NOT CMAKE_BUILD_TYPE)
@@ -35,4 +36,8 @@ add_subdirectory(botsort)
 
 if(BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+if(BUILD_SERVICE)
+    add_subdirectory(service)
 endif()
