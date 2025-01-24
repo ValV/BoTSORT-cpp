@@ -43,15 +43,17 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
 # Install runtime dependencies
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    libopencv-core4.5 \
-    libopencv-imgproc4.5 \
+    libopencv-videostab4.5d \
     libboost-filesystem1.74.0 \
     libboost-system1.74.0 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy only necessary files from the build stage
-COPY --from=build /usr/local/lib/bin/* /usr/local/bin/
 COPY --from=build /usr/local/lib/botsort/libbotsort.so /usr/local/lib/botsort/
+COPY --from=build /usr/local/lib/bin/* /workspace/botsort/
+COPY --from=build /workspace/assets/*.onnx /workspace/botsort/
+COPY --from=build /workspace/config /workspace/botsort/
+COPY --from=build /workspace/examples/data /workspace/botsort/
 
 # Environment setup
 ENV NVIDIA_VISIBLE_DEVICES ${NVIDIA_VISIBLE_DEVICES:-all}
