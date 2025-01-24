@@ -119,7 +119,7 @@ int main() {
             error_response["error"] = std::string("Error: ") + e.what();
             crow::response result;
             result.code = 400;
-            result.set_header("Content-Type". "application/json");
+            result.set_header("Content-Type", "application/json");
             result.write(error_response.dump());
             result.end();
             return result;
