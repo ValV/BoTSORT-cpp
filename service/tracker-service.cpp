@@ -117,7 +117,12 @@ int main() {
         } catch (const std::exception &e) {
             crow::json::wvalue error_response;
             error_response["error"] = std::string("Error: ") + e.what();
-            return crow::response(400, error_response.dump());
+            crow::response result;
+            result.code = 400;
+            result.set_header("Content-Type". "application/json");
+            result.write(error_response.dump());
+            result.end();
+            return result;
         }
     });
 
