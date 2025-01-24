@@ -115,7 +115,9 @@ int main() {
 
             return response;
         } catch (const std::exception &e) {
-            return crow::response(400, std::string("Error: ") + e.what());
+            crow::json::wvalue error_response;
+            error_response["error"] = std::string("Error: ") + e.what();
+            return crow::response(400, error_response.dump());
         }
     });
 
