@@ -1,5 +1,3 @@
-#include <crow.h>
-#include <opencv2/opencv.hpp>
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -7,6 +5,8 @@
 #include <string>
 #include <map>
 
+#include <crow.h>
+#include <opencv2/opencv.hpp>
 #include <BoTSORT.h>
 #include <track.h>
 
@@ -109,7 +109,7 @@ int main() {
             }
 
             crow::json::wvalue response_ok;
-            response_ok["predicts"] = result;
+            response_ok["predicts"] = std::move(result);
             response_ok["version"] = VERSION;
             response_ok["time"] = static_cast<double>(cv::getTickCount()) / cv::getTickFrequency();
 
