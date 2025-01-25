@@ -7,10 +7,10 @@
 #include <string>
 #include <map>
 
-#include "BoTSORT.h"
-#include "track.h"
+#include <BoTSORT.h>
+#include <track.h>
 
-#define VERSION "0.0.2"
+#define VERSION "0.2.0"
 
 // Function to parse multipart form-data (image + JSON)
 struct MultipartData {
@@ -108,21 +108,16 @@ int main() {
                 result.push_back(track_json);
             }
 
-            crow::json::wvalue response;
-            response["predicts"] = result;
-            response["version"] = VERSION;
-            response["time"] = static_cast<double>(cv::getTickCount()) / cv::getTickFrequency();
+            crow::json::wvalue response_ok;
+            response_ok["predicts"] = result;
+            response_ok["version"] = VERSION;
+            response_ok["time"] = static_cast<double>(cv::getTickCount()) / cv::getTickFrequency();
 
-            return response;
+            return crow::response(response_ok.dump());
         } catch (const std::exception &e) {
-            crow::json::wvalue error_response;
-            error_response["error"] = std::string("Error: ") + e.what();
-            crow::response result;
-            result.code = 400;
-            result.set_header("Content-Type", "application/json");
-            result.write(error_response.dump());
-            result.end();
-            return result;
+            crow::json::wvalue response_error;
+            response_error["error"] = std::string("Error: ") + e.what();
+            return crow::response(400, response_error.dump());
         }
     });
 

@@ -18,6 +18,8 @@ add_executable(${PROJECT_NAME} tracker-service.cpp)
 
 # Find and link OpenCV
 find_package(OpenCV REQUIRED)
+
+# Include directories
 target_include_directories(${PROJECT_NAME} PUBLIC ${OpenCV_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} PUBLIC ${botsort_INCLUDE_DIRS})
 
