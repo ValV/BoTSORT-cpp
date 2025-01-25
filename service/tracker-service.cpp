@@ -12,12 +12,13 @@
 
 #define VERSION "0.2.0"
 
-// Function to parse multipart form-data (image + JSON)
+// Structure to parse multipart form-data (image + JSON)
 struct MultipartData {
     cv::Mat image;
     std::string json;
 };
 
+// Function to parse multipart form-data (image + JSON)
 MultipartData parse_multipart(const crow::request &req) {
     MultipartData data;
 
@@ -51,15 +52,23 @@ MultipartData parse_multipart(const crow::request &req) {
     return data;
 }
 
+// Function to initialize tracker for single-instance usage
 std::unique_ptr<BoTSORT> initialize_tracker(const std::string &config_path) {
     return std::make_unique<BoTSORT>(config_path);
 }
 
+// Function to create a tracker to be used in a collection
+std::shared_ptr<BoTSORT> create_tracker(const std::string &config_path) {
+    return std::make_shared<BoTSORT>(config_path);
+}
+
+// Main function
 int main() {
     crow::SimpleApp app;
 
     const std::string CONFIG_FILE = "config/tracker.ini";
-    auto tracker = initialize_tracker(CONFIG_FILE);
+
+    std::unordered_map<int, std::shared_ptr<BoTSORT>> trackers;
 
     CROW_ROUTE(app, "/status").methods(crow::HTTPMethod::GET)([]() {
         crow::json::wvalue response;
@@ -72,8 +81,14 @@ int main() {
         return response;
     });
 
-    CROW_ROUTE(app, "/").methods(crow::HTTPMethod::POST)([&tracker](const crow::request &req) {
+    CROW_ROUTE(app, "/").methods(crow::HTTPMethod::POST)([&trackers, &CONFIG_FILE](const crow::request &req) {
         try {
+            int id_camera = std::stoi("1");  // TODO: get from req["cam_id"]
+
+            if (trackers.find(id_camera) == trackers.end()) {
+                trackers[id_camera] = create_tracker(CONFIG_FILE);
+            }
+
             auto data = parse_multipart(req);
             if (data.image.empty()) {
                 throw std::runtime_error("Failed to decode image");
@@ -97,7 +112,7 @@ int main() {
                 detections.push_back(det);
             }
 
-            auto tracks = tracker->track(detections, data.image);
+            auto tracks = trackers[id_camera]->track(detections, data.image);
 
             std::vector<crow::json::wvalue> result;
             for (const auto &track : tracks) {
