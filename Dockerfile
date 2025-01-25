@@ -21,7 +21,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y update && \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN curl -JOLk https://github.com/CrowCpp/Crow/releases/download/v1.2.0/Crow-1.2.0-Linux.deb && \
-    dpkg -i Crow-1.2.0-Linux.deb && rm -f Crow-1.2.0-Linux.deb
+    dpkg -i *.deb && rm -fv *.deb
 
 # Environment setup
 ENV NVIDIA_VISIBLE_DEVICES ${NVIDIA_VISIBLE_DEVICES:-all}
