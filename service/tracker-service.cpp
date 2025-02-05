@@ -20,17 +20,67 @@ struct MultipartData {
     std::string json;
 };
 
+#ifdef DEBUG
+std::ostream &operator<<(std::ostream &os,
+                         const crow::multipart::header &header) {
+    os << header.value << "(params: ";
+    for (const auto &param : header.params) {
+        os << param.first << "=" << param.second << ", ";
+    }
+    os << "...)";
+    return os;
+}
+
+void debug_multipart(const crow::multipart::message &messageMultipart) {
+    std::cout << "=== Multipart Debug Info ===" << std::endl;
+    if (messageMultipart.parts.empty()) {
+        std::cout << "No parts found in multipart message!" << std::endl;
+        return;
+    }
+    std::cout << "Boundary: " << messageMultipart.boundary << std::endl;
+    for (size_t i = 0; i < messageMultipart.parts.size(); i++) {
+        const auto &part = messageMultipart.parts[i];
+        std::cout << "\nPart " << i + 1 << " of "
+                  << messageMultipart.parts.size() << std::endl;
+        std::cout << "Headers:" << std::endl;
+        for (const auto &header : part.headers) {
+            std::cout << "\t" << header.first << ": " << header.second
+                      << std::endl;
+        }
+        std::cout << "Content length: " << part.body.size() << " bytes"
+                  << std::endl;
+        if (!part.body.empty()) {
+            std::cout << "First 20 bytes (hex): ";
+            for (size_t j = 0; j < std::min<size_t>(20, part.body.size());
+                 ++j) {
+                std::cout << std::hex << std::setw(2) << std::setfill('0')
+                          << static_cast<int>(
+                                 static_cast<unsigned char>(part.body[j]))
+                          << " ";
+            }
+            std::cout << std::dec << std::endl;
+        }
+    }
+}
+#endif
+
 // Function to parse multipart form-data (image + JSON)
 MultipartData parse_multipart(const crow::request &req) {
     MultipartData data;
 
     crow::multipart::message messageMultipart(req);
 
+#ifdef DEBUG
+    debug_multipart(messageMultipart);
+#endif
+
     auto partFrame = messageMultipart.get_part_by_name("frame");
     if (!partFrame.body.empty()) {
         std::vector<uchar> dataImage(partFrame.body.begin(),
                                      partFrame.body.end());
         data.image = cv::imdecode(dataImage, cv::IMREAD_COLOR);
+    } else {
+        std::cerr << "WARNING: HTTP requset has no frame!" << std::endl;
     }
 
     auto partJson = messageMultipart.get_part_by_name("json");
