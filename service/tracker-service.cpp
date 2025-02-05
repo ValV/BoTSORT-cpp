@@ -121,7 +121,7 @@ int main() {
         response["path"] = "/";
         response["version"] = VERSION;
         response["output"]["types"] = crow::json::wvalue::list({"track"});
-        response["image_types"] = crow::json::wvalue::list({"-"});
+        // response["image_types"] = crow::json::wvalue::list({"-"});
         return response;
     });
 
