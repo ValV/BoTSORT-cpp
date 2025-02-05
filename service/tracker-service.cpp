@@ -15,6 +15,7 @@
 
 // Structure to parse multipart form-data (image + JSON)
 struct MultipartData {
+    std::string context;
     cv::Mat image;
     std::string json;
 };
@@ -23,33 +24,23 @@ struct MultipartData {
 MultipartData parse_multipart(const crow::request &req) {
     MultipartData data;
 
-    auto content_type = req.get_header_value("Content-Type");
-    auto boundary_pos = content_type.find("boundary=");
-    if (boundary_pos == std::string::npos) {
-        throw std::runtime_error("Boundary not found in Content-Type header");
+    crow::multipart::message messageMultipart(req);
+
+    auto partFrame = messageMultipart.get_part_by_name("frame");
+    if (!partFrame.body.empty()) {
+        std::vector<uchar> dataImage(partFrame.body.begin(),
+                                     partFrame.body.end());
+        data.image = cv::imdecode(dataImage, cv::IMREAD_COLOR);
     }
 
-    std::string boundary = "--" + content_type.substr(boundary_pos + 9);
-    std::string body = req.body;
+    auto partJson = messageMultipart.get_part_by_name("json");
+    if (!partJson.body.empty()) {
+        data.json = partJson.body;
+    }
 
-    size_t pos = 0;
-    while ((pos = body.find(boundary, pos)) != std::string::npos) {
-        size_t start = body.find("\r\n\r\n", pos) + 4;
-        size_t end = body.find(boundary, start) - 2;
-        std::string part = body.substr(start, end - start);
-
-        if (part.find("Content-Disposition: form-data; name=\"frame\"") !=
-            std::string::npos) {
-            size_t img_start = part.find("\r\n\r\n") + 4;
-            std::vector<uchar> img_data(part.begin() + img_start, part.end());
-            data.image = cv::imdecode(img_data, cv::IMREAD_COLOR);
-        } else if (part.find("Content-Disposition: form-data; name=\"json\"") !=
-                   std::string::npos) {
-            size_t json_start = part.find("\r\n\r\n") + 4;
-            data.json = part.substr(json_start);
-        }
-
-        pos = end + boundary.size();
+    auto partContext = messageMultipart.get_part_by_name("context");
+    if (!partContext.body.empty()) {
+        data.context = partContext.body;
     }
 
     return data;
