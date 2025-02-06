@@ -14,10 +14,12 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y update && \
     build-essential \
     cmake \
     cppcheck \
+    gdb \
     libasio-dev \
     libeigen3-dev \
     libopencv-dev \
     libboost-all-dev \
+    tree \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN curl -JOLk https://github.com/CrowCpp/Crow/releases/download/v1.2.0/Crow-1.2.0-Linux.deb && \
@@ -32,9 +34,10 @@ ENV LD_LIBRARY_PATH /usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu${LD_LIBRAR
 COPY . ./
 
 # Build botsort library and example
-RUN cd /usr/local/lib && cmake /workspace/CMakeLists.txt && make
+# RUN cd /usr/local/lib && cmake -DCMAKE_BUILD_TYPE=Debug /workspace && make
+RUN cd /usr/local/lib && cmake /workspace && make
 
-# Stage 2: Deploy Stage
+# Stage 2: Deploy Stage (comment this stage to get into debug environment)
 FROM nvcr.io/nvidia/tensorrt:23.09-py3
 
 SHELL ["/bin/bash", "-c"]
@@ -54,12 +57,14 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y update && \
 
 # Copy only necessary files from the build stage
 COPY --from=build /usr/local/lib/botsort/libbotsort.so /usr/local/lib/botsort/
-COPY --from=build /usr/local/lib/bin/* /workspace/botsort/
+COPY --from=build /usr/local/lib/bin/* /usr/local/bin/
 COPY --from=build /workspace/assets/*.onnx /workspace/botsort/
-COPY --from=build /workspace/config /workspace/botsort/
+COPY --from=build /workspace/config/* /usr/local/etc/botsort/
 COPY --from=build /workspace/examples/data /workspace/botsort/
 
 # Environment setup
 ENV NVIDIA_VISIBLE_DEVICES ${NVIDIA_VISIBLE_DEVICES:-all}
 ENV NVIDIA_DRIVER_CAPABILITIES ${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics,compat32,utility,video,compute
 ENV LD_LIBRARY_PATH /usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+
+CMD [ "/usr/local/bin/tracker-service" ]
