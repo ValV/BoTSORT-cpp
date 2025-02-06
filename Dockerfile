@@ -59,6 +59,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y update && \
 COPY --from=build /usr/local/lib/botsort/libbotsort.so /usr/local/lib/botsort/
 COPY --from=build /usr/local/lib/bin/* /usr/local/bin/
 COPY --from=build /workspace/assets/*.onnx /workspace/botsort/
+COPY --from=build /workspace/assets/*.engine /workspace/botsort/
 COPY --from=build /workspace/config/* /usr/local/etc/botsort/
 COPY --from=build /workspace/examples/data /workspace/botsort/
 
