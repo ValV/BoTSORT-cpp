@@ -102,7 +102,11 @@ std::unique_ptr<BoTSORT> initialize_tracker(const std::string &config_path) {
     return std::make_unique<BoTSORT>(config_path);
 }
 
-// Function to create a tracker to be used in a collection
+// Functions to create a tracker. Note that on the first creation
+// TensorRT will convert ONNX model to TRT engine representation.
+// This may take a long time so that client may fail with timeout
+// error. Thus either initial start is required, some locking logic,
+// or special build procedure
 std::shared_ptr<BoTSORT> create_tracker(const std::string &config_path) {
     return std::make_shared<BoTSORT>(config_path);
 }
@@ -202,6 +206,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (classes.find(id_camera) == classes.end()) {
+                // Create bidirectional map for the camera classes
                 boost::bimap<std::string, uint8_t> bimap_camera;
                 classes[id_camera] = std::move(bimap_camera);
                 std::cout << "New class bimap created for camera " << id_camera
@@ -209,6 +214,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (trackers.find(id_camera) == trackers.end()) {
+                // Create a dedicated tracker for the camera
                 trackers[id_camera] =
                     create_tracker(configs[KEY_TRACKER], configs[KEY_GMC],
                                    configs[KEY_REID], configs[KEY_MODEL]);
@@ -253,8 +259,10 @@ int main(int argc, char *argv[]) {
                 detections.push_back(det);
             }
 
+            // Do the tracking
             auto tracks = trackers[id_camera]->track(detections, data.image);
 
+            // Prepare response from the tracking results
             std::vector<crow::json::wvalue> result;
             for (const auto &track : tracks) {
                 crow::json::wvalue item;
