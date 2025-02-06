@@ -1,5 +1,7 @@
 #include "track.h"
 
+#include <limits>
+#include <unordered_map>
 #include <utility>
 
 #include "profiler.h"
@@ -226,6 +228,22 @@ std::vector<float> Track::get_tlwh() const
 float Track::get_score() const
 {
     return _score;
+}
+
+uint8_t Track::get_class_id() const {
+  std::unordered_map<uint8_t, float> score_map;
+  for (const auto &entry : _class_hist) {
+    score_map[entry.first] += entry.second;
+  }
+  uint8_t best_id = 0;
+  float best_score = std::numeric_limits<float>::lowest();
+  for (const auto &pair : score_map) {
+    if (pair.second > best_score) {
+      best_score = pair.second;
+      best_id = pair.first;
+    }
+  }
+  return best_id;
 }
 
 void Track::_update_class_id(uint8_t class_id, float score)

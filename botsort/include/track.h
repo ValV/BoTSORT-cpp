@@ -8,22 +8,15 @@
 
 using KalmanFilter = bot_kalman::KalmanFilter;
 
-enum TrackState
-{
-    New = 0,
-    Tracked,
-    Lost,
-    LongLost,
-    Removed
-};
+enum TrackState { New = 0, Tracked, Lost, LongLost, Removed };
 
-class Track
-{
-public:
+class Track {
+  public:
     /**
      * @brief Construct a new Track object
-     * 
-     * @param tlwh Detection bounding box in the format [top-left-x, top-left-y, width, height]
+     *
+     * @param tlwh Detection bounding box in the format [top-left-x, top-left-y,
+     * width, height]
      * @param score Detection score
      * @param class_id Detection class ID
      * @param feat (Optional) Detection feature vector
@@ -35,51 +28,63 @@ public:
 
     /**
      * @brief Get the next track ID
-     * 
+     *
      * @return int Next track ID
      */
     static int next_id();
 
     /**
      * @brief Get end frame-id of the track
-     * 
+     *
      * @return int End frame-id of the track
      */
     uint32_t end_frame() const;
 
     /**
      * @brief Upates the track state to Lost
-     * 
+     *
      */
     void mark_lost();
 
     /**
      * @brief Upates the track state to LongLost
-     * 
+     *
      */
     void mark_long_lost();
 
     /**
      * @brief Upates the track state to Removed
-     * 
+     *
      */
     void mark_removed();
 
     /**
-     * @brief Get the latest detection bounding box in the format [top-left-x, top-left-y, width, height]
+     * @brief Get the latest detection bounding box in the format [top-left-x,
+     * top-left-y, width, height]
      */
     std::vector<float> get_tlwh() const;
 
     /**
      * @brief Get the score object
-     * 
+     *
      * @return float Confidence score of the track
      */
     float get_score() const;
 
     /**
+     * @brief Returns the class_id with the maximum accumulated confidence
+     *
+     * For each unique class_id in the history, sums up all its
+     * scores/confidences and returns the class_id with the maximum accumulated
+     * score
+     *
+     * @return uint8_t The class_id with the highest aggregated score
+     */
+    uint8_t get_class_id() const;
+
+    /**
      * @brief Activates the track
-     * 
+     *
      * @param kalman_filter Kalman filter object for the track
      * @param frame_id Current frame-id
      */
@@ -87,7 +92,7 @@ public:
 
     /**
      * @brief Re-activates the track
-     * 
+     *
      * @param kalman_filter Kalman filter object
      * @param new_track New track object
      * @param frame_id Current frame-id
@@ -98,14 +103,14 @@ public:
 
     /**
      * @brief Predict the next state of the track using the Kalman filter
-     * 
+     *
      * @param kalman_filter Kalman filter class object
      */
     void predict(KalmanFilter &kalman_filter);
 
     /**
      * @brief Predict the next state of multiple tracks using the Kalman filter
-     * 
+     *
      * @param tracks Tracks on which to perform the prediction step
      * @param kalman_filter Kalman filter object for the tracks
      */
@@ -114,14 +119,14 @@ public:
 
     /**
      * @brief Apply camera motion to the track
-     * 
+     *
      * @param H Homography matrix
      */
     void apply_camera_motion(const HomographyMatrix &H);
 
     /**
      * @brief Apply camera motion to multiple tracks
-     * 
+     *
      * @param tracks Tracks on which to apply the camera motion
      * @param H Homography matrix
      */
@@ -130,25 +135,27 @@ public:
 
     /**
      * @brief Update the track state using the new detection
-     * 
+     *
      * @param new_track New track object to be used to update the old track
      * @param frame_id Current frame-id
      */
     void update(KalmanFilter &kalman_filter, Track &new_track,
                 uint32_t frame_id);
 
-private:
+  private:
     /**
      * @brief Updates visual feature vector and feature history
-     * Done by using a weighted average of the current feature vector and the previous feature vector
-     * 
+     * Done by using a weighted average of the current feature vector and the
+     * previous feature vector
+     *
      * @param feat Current feature vector
      */
     void _update_features(const std::shared_ptr<FeatureVector> &feat);
 
     /**
-     * @brief Populate a DetVec bbox object (xywh) from the detection bounding box (tlwh)
-     * 
+     * @brief Populate a DetVec bbox object (xywh) from the detection bounding
+     * box (tlwh)
+     *
      * @param bbox_xywh DetVec bbox object (xywh) to be populated
      * @param tlwh Detection bounding box (tlwh)
      */
@@ -156,26 +163,29 @@ private:
                                       const std::vector<float> &tlwh);
 
     /**
-     * @brief Update the tracklet bounding box (stored as tlwh) inplace according to the tracker state
-     * 
+     * @brief Update the tracklet bounding box (stored as tlwh) inplace
+     * according to the tracker state
+     *
      */
     void _update_tracklet_tlwh_inplace();
 
     /**
-     * @brief Update the class_id for the given tracklet on the basis of the frequency of the class_id in the class history
-     * The history maintains a list of (class_id, score) pairs.
-     * If a particular class_id occurs with a higher score, multiple times, it is more likely to be the correct class_id
-     * If a particular class_id occurs with a lower score, multiple times, it is less likely to be the correct class_id
-     * 
-     * The frequency of the class_id is calculated as the sum of the scores of the class_id in the history
-     * 
+     * @brief Update the class_id for the given tracklet on the basis of the
+     * frequency of the class_id in the class history The history maintains a
+     * list of (class_id, score) pairs. If a particular class_id occurs with a
+     * higher score, multiple times, it is more likely to be the correct
+     * class_id If a particular class_id occurs with a lower score, multiple
+     * times, it is less likely to be the correct class_id
+     *
+     * The frequency of the class_id is calculated as the sum of the scores of
+     * the class_id in the history
+     *
      * @param class_id Current class_id for the bounding box
      * @param score Current score for the bounding box
      */
     void _update_class_id(uint8_t class_id, float score);
 
-
-public:
+  public:
     bool is_activated;
     int track_id;
     int state;
@@ -188,7 +198,7 @@ public:
     KFStateSpaceVec mean;
     KFStateSpaceMatrix covariance;
 
-private:
+  private:
     std::vector<float> _tlwh;
     std::vector<std::pair<uint8_t, float>> _class_hist;
     float _score;
