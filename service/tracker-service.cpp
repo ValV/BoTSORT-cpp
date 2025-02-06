@@ -152,6 +152,7 @@ std::unordered_map<std::string, std::string> parse_config_args(int argc,
 // Main function
 int main(int argc, char *argv[]) {
     crow::SimpleApp app;
+    app.loglevel(crow::LogLevel::Warning);
 
     auto configs = parse_config_args(argc, argv);
 
