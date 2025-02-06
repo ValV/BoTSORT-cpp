@@ -151,6 +151,20 @@ int main(int argc, char *argv[]) {
 
     auto configs = parse_config_args(argc, argv);
 
+    // Default config paths
+    if (configs.find(KEY_TRACKER) == configs.end()) {
+        configs[KEY_TRACKER] = PATH_TRACKER;
+    }
+    if (configs.find(KEY_GMC) == configs.end()) {
+        configs[KEY_GMC] = PATH_GMC;
+    }
+    if (configs.find(KEY_REID) == configs.end()) {
+        configs[KEY_REID] = PATH_REID;
+    }
+    if (configs.find(KEY_MODEL) == configs.end()) {
+        configs[KEY_MODEL] = PATH_MODEL;
+    }
+
     std::unordered_map<size_t, boost::bimap<std::string, uint8_t>> classes;
     std::unordered_map<int, std::shared_ptr<BoTSORT>> trackers;
 
