@@ -9,6 +9,7 @@
 #include <crow.h>
 #include <track.h>
 
+#include <boost/bimap.hpp>
 #include <opencv2/opencv.hpp>
 
 #define VERSION "0.2.0"
@@ -150,6 +151,7 @@ int main(int argc, char *argv[]) {
 
     auto configs = parse_config_args(argc, argv);
 
+    std::unordered_map<size_t, boost::bimap<std::string, uint8_t>> classes;
     std::unordered_map<int, std::shared_ptr<BoTSORT>> trackers;
 
     CROW_ROUTE(app, "/status").methods(crow::HTTPMethod::GET)([]() {
@@ -163,7 +165,7 @@ int main(int argc, char *argv[]) {
     });
 
     CROW_ROUTE(app, "/").methods(
-        crow::HTTPMethod::POST)([&configs,
+        crow::HTTPMethod::POST)([&classes, &configs,
                                  &trackers](const crow::request &req) {
         try {
             auto data = parse_multipart(req);
@@ -185,6 +187,13 @@ int main(int argc, char *argv[]) {
                           << std::endl;
             }
 
+            if (classes.find(id_camera) == classes.end()) {
+                boost::bimap<std::string, uint8_t> bimap_camera;
+                classes[id_camera] = std::move(bimap_camera);
+                std::cout << "New class bimap created for camera " << id_camera
+                          << std::endl;
+            }
+
             if (trackers.find(id_camera) == trackers.end()) {
                 trackers[id_camera] =
                     create_tracker(configs[KEY_TRACKER], configs[KEY_GMC],
@@ -196,12 +205,37 @@ int main(int argc, char *argv[]) {
             std::vector<Detection> detections;
             for (const auto &item : json_data) {
                 Detection det;
-                det.bbox_tlwh = cv::Rect(static_cast<int>(item["bbox"][0].i()),
-                                         static_cast<int>(item["bbox"][1].i()),
-                                         static_cast<int>(item["bbox"][2].i()),
-                                         static_cast<int>(item["bbox"][3].i()));
+                // Since item["bbox"] is tlwh, but normalized (real value from 0
+                // to 1), it's necessary to scale it to the actual image
+                // coordinates in pixels
+                det.bbox_tlwh = cv::Rect(
+                    static_cast<int>(
+                        std::round(item["bbox"][0].d() * data.image.cols)),
+                    static_cast<int>(
+                        std::round(item["bbox"][1].d() * data.image.rows)),
+                    static_cast<int>(
+                        std::round(item["bbox"][2].d() * data.image.cols)),
+                    static_cast<int>(
+                        std::round(item["bbox"][3].d() * data.image.rows)));
+                // Class probability may be used as-is
                 det.confidence = static_cast<float>(item["prob"].d());
-                det.class_id = static_cast<int>(item["type"].i());
+                // Since item["type"] is a string value, it's necessary to map
+                // it to an integer value. Assume here that the class names are
+                // unique and must be mapped to unique integers. For simplicity,
+                // just increment the last used integer for each new class name
+                std::string key = item["type"].s();
+                uint8_t value = 1;
+                auto index = classes[id_camera].left.find(key);
+                if (index == classes[id_camera].left.end()) {
+                    if (!classes[id_camera].right.empty()) {
+                        value = classes[id_camera].right.rbegin()->first + 1;
+                    }
+                    classes[id_camera].insert(
+                        boost::bimap<std::string, uint8_t>::value_type(key,
+                                                                       value));
+                }
+                det.class_id =
+                    static_cast<int>(classes[id_camera].left.find(key)->second);
                 detections.push_back(det);
             }
 
@@ -209,12 +243,21 @@ int main(int argc, char *argv[]) {
 
             std::vector<crow::json::wvalue> result;
             for (const auto &track : tracks) {
-                crow::json::wvalue track_json;
-                track_json["track_id"] = track->track_id;
+                crow::json::wvalue item;
+                auto class_id = track->get_class_id();
+                item["type"] = classes[id_camera].right.find(class_id)->second;
+                item["prob"] = track->get_score();
+
                 auto bbox = track->get_tlwh();
-                track_json["bbox"] = crow::json::wvalue::list(
-                    {bbox[0], bbox[1], bbox[2], bbox[3]});
-                result.push_back(track_json);
+                item["bbox"] = crow::json::wvalue::list(
+                    {bbox[0] / data.image.cols, bbox[1] / data.image.rows,
+                     bbox[2] / data.image.cols, bbox[3] / data.image.rows});
+
+                item["data"] = crow::json::wvalue::object();
+                item["data"]["track_id"] = track->track_id;
+                item["data"]["state"] = track->state;
+
+                result.push_back(item);
             }
 
             crow::json::wvalue response_ok;
