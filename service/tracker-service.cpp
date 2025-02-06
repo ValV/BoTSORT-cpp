@@ -106,11 +106,49 @@ std::shared_ptr<BoTSORT> create_tracker(const std::string &config_path) {
     return std::make_shared<BoTSORT>(config_path);
 }
 
+std::shared_ptr<BoTSORT> create_tracker(const std::string &config_tracker,
+                                        const std::string &config_gmc,
+                                        const std::string &config_reid,
+                                        const std::string &model_reid) {
+    return std::make_shared<BoTSORT>(config_tracker, config_gmc, config_reid,
+                                     model_reid);
+}
+
+std::unordered_map<std::string, std::string> parse_config_args(int argc,
+                                                               char *argv[]) {
+    std::unordered_map<std::string, std::string> configs;
+    for (int i = 1; i < argc; i++) {
+        std::string arg(argv[i]);
+        const std::string prefix = "--path-";
+        if (arg.substr(0, prefix.size()) == prefix) {
+            auto pos = arg.find('=');
+            if (pos != std::string::npos && pos + 1 < arg.size()) {
+                std::string key =
+                    arg.substr(prefix.size(), pos - prefix.size());
+                std::string value = arg.substr(pos + 1);
+                // Store into the dict
+                configs[key] = value;
+            }
+        }
+    }
+    return configs;
+}
+
+#define KEY_TRACKER "config-tracker"
+#define KEY_GMC "config-gmc"
+#define KEY_REID "config-reid"
+#define KEY_MODEL "model-reid"
+
+#define PATH_TRACKER "/usr/local/etc/botsort/tracker.ini"
+#define PATH_GMC "/usr/local/etc/botsort/gmc.ini"
+#define PATH_REID "/usr/local/etc/botsort/reid.ini"
+#define PATH_MODEL "/workspace/botsort/mobilenetv2_x1_4_msmt17.onnx"
+
 // Main function
-int main() {
+int main(int argc, char *argv[]) {
     crow::SimpleApp app;
 
-    const std::string CONFIG_FILE = "config/tracker.ini";
+    auto configs = parse_config_args(argc, argv);
 
     std::unordered_map<int, std::shared_ptr<BoTSORT>> trackers;
 
@@ -125,12 +163,17 @@ int main() {
     });
 
     CROW_ROUTE(app, "/").methods(
-        crow::HTTPMethod::POST)([&trackers,
-                                 &CONFIG_FILE](const crow::request &req) {
+        crow::HTTPMethod::POST)([&configs,
+                                 &trackers](const crow::request &req) {
         try {
             auto data = parse_multipart(req);
             if (data.image.empty()) {
                 throw std::runtime_error("Failed to decode image");
+            }
+
+            auto json_data = crow::json::load(data.json);
+            if (!json_data) {
+                throw std::runtime_error("Invalid JSON in request");
             }
 
             size_t id_camera = 0;
@@ -140,22 +183,17 @@ int main() {
             } catch (const std::exception &e) {
                 std::cerr << "WARNING: Cannot get camera ID from context"
                           << std::endl;
-                // throw std::runtime_error("Cannot get camera ID from
-                // context!");
             }
 
             if (trackers.find(id_camera) == trackers.end()) {
-                trackers[id_camera] = create_tracker(CONFIG_FILE);
+                trackers[id_camera] =
+                    create_tracker(configs[KEY_TRACKER], configs[KEY_GMC],
+                                   configs[KEY_REID], configs[KEY_MODEL]);
                 std::cout << "New tracker created for camera " << id_camera
                           << std::endl;
             }
 
             std::vector<Detection> detections;
-            auto json_data = crow::json::load(data.json);
-            if (!json_data) {
-                throw std::runtime_error("Invalid JSON in request");
-            }
-
             for (const auto &item : json_data) {
                 Detection det;
                 det.bbox_tlwh = cv::Rect(static_cast<int>(item["bbox"][0].i()),
